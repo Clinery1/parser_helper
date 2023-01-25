@@ -1,0 +1,12 @@
+[package]
+name = "parser_helper"
+version = "0.1.0"
+edition = "2021"
+
+
+[features]
+logos_token_stream = ["logos"]
+
+
+[dependencies]
+logos = { version = "0.12.1", optional = true }
