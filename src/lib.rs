@@ -14,7 +14,7 @@
 //! # Helpful patterns
 //! ## Left-associative ASTs
 //! When using recursive ascent, it is very easy to make right-associative ASTs, but creating a
-//! left-associative AST is not immediatly obvious. One way is to have a two functions.
+//! left-associative AST is not immediately obvious. One way is to have two functions.
 //! ```ignore
 //! // A non-recursive helper method that simply makes calling the recursive function easier
 //! fn left_associative(&mut self)->Expr<'a> {
