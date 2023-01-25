@@ -4,8 +4,8 @@ Makes lookahead much easier since you don't have to write a lookahead lexer
 yourself.
 
 # Recommended practices
-Creating a newtype wrapper around [`LookaheadLexer`] and implementing [`Deref`](std::ops::Deref)
-and [`DerefMut`](std::ops::DerefMut) on it for easy `self.take_token()` and other methods.
+Creating a newtype wrapper around `LookaheadLexer` and implementing `Deref`
+and `DerefMut` on it for easy `self.take_token()` and other methods.
 
 I also recommend not using entirely recursive ascent like a parser generator would, but instead
 using helper functions to consolidate a lot of the pattern matching and make it similar to
