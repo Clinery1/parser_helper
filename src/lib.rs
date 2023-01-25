@@ -266,7 +266,7 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
     }
 
     /// Creates an error with the given message at the current location.
-    pub fn error(&self,msg:&'static str)->SimpleError {
+    pub fn error<M>(&self,msg:M)->SimpleError<M> {
         SimpleError {
             span:self.span(),
             line_1:self.line(),
@@ -390,11 +390,11 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
 
 /// A sane, simple error type made easy for parsing
 #[derive(Debug)]
-pub struct SimpleError {
+pub struct SimpleError<M=&'static str> {
     pub span:Span,
     pub line_1:usize,
     pub col_1:usize,
-    pub msg:&'static str,
+    pub msg:M,
 }
 impl SimpleError {
     pub fn eprint(&self) {
