@@ -319,6 +319,17 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
         self.line
     }
 
+    /// Attempt to match the given token to the next token. If it does not match, then return a
+    /// [`SimpleError`] with the given error message.
+    pub fn match_token<E>(&mut self,token:T,err_msg:E)->Result<(),SimpleError<E>>
+    where T:PartialEq {
+        let new_token=self.take_token();
+        if new_token!=token {
+            return Err(self.error(err_msg));
+        }
+        return Ok(());
+    }
+
     // private helper functions
 
     fn init_buffer(&mut self) {
