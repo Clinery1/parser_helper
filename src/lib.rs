@@ -96,7 +96,7 @@
 //! ```
 
 
-#[cfg(feature="logos_token_stream")]
+#[cfg(feature="logos")]
 use logos::{
     Lexer,
     Logos,
@@ -137,7 +137,7 @@ pub trait TokenStream<'a,T:Token>:Iterator<Item=T> {
         source.len()..source.len()
     }
 }
-#[cfg(feature="logos_token_stream")]
+#[cfg(feature="logos")]
 impl<'a,T:Token+Logos<'a,Source=str>> TokenStream<'a,T> for Lexer<'a,T> {
     fn span(&self)->Span {
         self.span()
