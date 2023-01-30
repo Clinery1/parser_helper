@@ -183,7 +183,7 @@ pub struct LookaheadLexer<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> {
     /// If it returns true, then we ignore the token
     ignore_fn:Box<dyn Fn(&T)->bool>,
     enable_ignore:bool,
-    user_data:D,
+    pub user_data:D,
     inner:L,
     buffer:[TokenChange<T>;K],
     current_token_span:Span,
@@ -222,16 +222,6 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
         ret.init_buffer();
 
         return ret;
-    }
-
-    /// Get a reference to the user data.
-    pub fn user_data(&self)->&D {
-        &self.user_data
-    }
-
-    /// Get a mutable reference to the user data.
-    pub fn user_data_mut(&mut self)->&mut D {
-        &mut self.user_data
     }
 
     /// Get the span of the current token.
