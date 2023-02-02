@@ -118,27 +118,27 @@ pub trait Token:Debug {
 }
 
 /// A stream of tokens with a few helpful functions.
-pub trait TokenStream<'a,T:Token>:Iterator<Item=T> {
+pub trait TokenStream<T:Token>:Iterator<Item=T> {
+    type Slice;
     /// The span of the current token
     fn span(&self)->Span;
 
     /// The full source
-    fn source(&self)->&'a str;
+    fn source(&self)->Self::Slice;
 
     /// The remaining string
-    fn remaining(&self)->&'a str;
+    fn remaining(&self)->Self::Slice;
 
     /// The string slice of the current token
-    fn slice(&self)->&'a str;
+    fn slice(&self)->Self::Slice;
 
     /// The span of the last token (EOF)
-    fn end_span(&self)->Span {
-        let source=self.source();
-        source.len()..source.len()
-    }
+    fn end_span(&self)->Span;
 }
+
 #[cfg(feature="logos")]
-impl<'a,T:Token+Logos<'a,Source=str>> TokenStream<'a,T> for Lexer<'a,T> {
+impl<'a,T:Token+Logos<'a,Source=str>> TokenStream<T> for Lexer<'a,T> {
+    type Slice=&'a str;
     fn span(&self)->Span {
         self.span()
     }
@@ -150,6 +150,9 @@ impl<'a,T:Token+Logos<'a,Source=str>> TokenStream<'a,T> for Lexer<'a,T> {
     }
     fn slice(&self)->&'a str {
         self.slice()
+    }
+    fn end_span(&self)->Span {
+        self.source().len()..self.source().len()
     }
 }
 
@@ -164,42 +167,26 @@ pub enum Either<A,B> {
 }
 
 
-/// For internal use in the lookahead buffer.
-#[derive(Debug)]
-struct TokenChange<T> {
-    pub tok_span:(T,Span),
-    /// Relative to the current line/column
-    pub line:usize,
-    /// Relative to the current line/column
-    pub col:usize,
-}
-
 /// A parser with `K` tokens of lookahead and a few helpful methods. Can contain user data for
 /// context-dependent parsing like significant whitespace or nested languages.
 ///
 /// Note: K MUST BE greater than 0 or the lexer will always panic when attempting to access a
 /// zero-length lookahead buffer.
-pub struct LookaheadLexer<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> {
+pub struct LookaheadLexer<'a,const K:usize,T:Token,L:TokenStream<T>,D> {
     /// If it returns true, then we ignore the token
     ignore_fn:Box<dyn Fn(&T)->bool>,
     enable_ignore:bool,
     pub user_data:D,
     inner:L,
-    buffer:[TokenChange<T>;K],
+    buffer:[(T,Span);K],
     current_token_span:Span,
-    line:usize,
-    col:usize,
     _phantom:PhantomData<&'a ()>,
 }
-impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> {
+impl<'a,const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<'a,K,T,L,D> {
     /// Create a new LookaheadLexer with the given lexer and user data.
     pub fn new(lexer:L,user_data:D)->Self {
         debug_assert!(K!=0);
-        let buf=(0..K).map(|_|TokenChange {
-            tok_span:(T::eof(),lexer.end_span()),
-            line:0,
-            col:0,
-        }).collect::<Vec<_>>();
+        let buf=(0..K).map(|_|(T::eof(),lexer.end_span())).collect::<Vec<_>>();
 
         let buffer=if let Ok(b)=buf.try_into() {
             b
@@ -214,8 +201,6 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
             inner:lexer,
             buffer,
             current_token_span:0..0,
-            line:0,
-            col:0,
             _phantom:PhantomData,
         };
 
@@ -245,22 +230,10 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
         self.ignore_fn=Box::new(f);
     }
 
-    /// The 1-indexed column. Useful for displayable code.
-    pub fn column(&self)->usize {
-        self.col+1
-    }
-
-    /// The 1-indexed line. Useful for displayable code.
-    pub fn line(&self)->usize {
-        self.line+1
-    }
-
     /// Creates an error with the given message at the current location.
     pub fn error<M>(&self,msg:M)->SimpleError<M> {
         SimpleError {
             span:self.span(),
-            line_1:self.line(),
-            col_1:self.column(),
             msg,
         }
     }
@@ -268,10 +241,10 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
     /// Returns a reference to the internal lookahead buffer at the given index.
     pub fn lookahead(&mut self,index:usize)->&(T,Span) {
         debug_assert!(index<K,"Index out of bounds. There are only {} token(s) of lookahead",K);
-        if self.should_skip(&self.buffer[index].tok_span.0) {
+        if self.should_skip(&self.buffer[index].0) {
             self.shift_lookahead(index);
         }
-        &self.buffer[index].tok_span
+        &self.buffer[index]
     }
 
     /// Debug prints the internal lookahead buffer
@@ -297,16 +270,6 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
         }
         self.current_token_span=tmp_tok.1.clone();
         return tmp_tok;
-    }
-
-    /// The 0-indexed column
-    pub fn column_raw(&self)->usize {
-        self.col
-    }
-
-    /// The 0-indexed line
-    pub fn line_raw(&self)->usize {
-        self.line
     }
 
     /// Attempt to match the given token to the next token. If it does not match, then return a
@@ -335,35 +298,13 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
         return false;
     }
 
-    fn get_next_token(&mut self)->TokenChange<T> {
+    fn get_next_token(&mut self)->(T,Span) {
         if let Some(t)=self.inner.next() {
             let span=self.inner.span();
-            let slice=self.inner.slice();
-            let mut last=None;
-            let mut line=0;
-            let col;
-            for (index,_) in slice.match_indices('\n') {
-                line+=1;
-                last=Some(index+1);
-            }
-            if let Some(newline_idx)=last {
-                let remainder=&slice[newline_idx..];
-                col=remainder.chars().count();
-            } else {
-                col=slice.chars().count();
-            }
-            return TokenChange {
-                tok_span:(t,span),
-                line,
-                col,
-            };
+            return (t,span);
         } else {
             let span=self.inner.span();
-            return TokenChange {
-                tok_span:(T::eof(),span),
-                line:0,
-                col:0,
-            };
+            return (T::eof(),span);
         }
     }
 
@@ -373,18 +314,7 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
             for i in (from..K).rev() {
                 mem::swap(&mut tmp_tok,&mut self.buffer[i]);
             }
-            if from==0 {
-                if tmp_tok.line!=0 {
-                    self.line+=tmp_tok.line;
-                    self.col=tmp_tok.col;
-                } else {
-                    self.col+=tmp_tok.col;
-                }
-            } else {
-                self.buffer[from].line+=tmp_tok.line;
-                self.buffer[from].col+=tmp_tok.col;
-            }
-            return tmp_tok.tok_span;
+            return tmp_tok;
         }
     }
 }
@@ -393,12 +323,10 @@ impl<'a,const K:usize,T:Token,L:TokenStream<'a,T>,D> LookaheadLexer<'a,K,T,L,D> 
 #[derive(Debug)]
 pub struct SimpleError<M=&'static str> {
     pub span:Span,
-    pub line_1:usize,
-    pub col_1:usize,
     pub msg:M,
 }
 impl SimpleError {
     pub fn eprint(&self) {
-        eprintln!("[{}:{}]: {}",self.line_1,self.col_1,self.msg);
+        eprintln!("{}",self.msg);
     }
 }
