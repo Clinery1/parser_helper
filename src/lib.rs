@@ -258,6 +258,12 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
         return ret;
     }
 
+    /// Get a reference to the token stream
+    #[inline]
+    pub fn token_stream(&self)->&L {
+        &self.inner
+    }
+
     /// Get the span of the current token.
     pub fn span(&self)->Span {
         self.current_token_span.clone()
