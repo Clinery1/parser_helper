@@ -229,6 +229,7 @@ pub struct LookaheadLexer<const K:usize,T:Token,L:TokenStream<T>,D> {
     inner:L,
     buffer:[(T,Span);K],
     current_token_span:Span,
+    is_eof:bool,
 }
 impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
     /// Create a new LookaheadLexer with the given lexer and user data.
@@ -249,6 +250,7 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
             inner:lexer,
             buffer,
             current_token_span:0..0,
+            is_eof:false,
         };
 
         ret.init_buffer();
@@ -309,6 +311,11 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
         self.take_token_span().0
     }
 
+    #[inline]
+    pub fn is_eof(&self)->bool {
+        self.is_eof
+    }
+
     /// Takes the next token and span
     pub fn take_token_span(&mut self)->(T,Span) {
         let mut tmp_tok=self.shift_lookahead(0);
@@ -350,6 +357,7 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
             let span=self.inner.span();
             return (t,span);
         } else {
+            self.is_eof=true;
             let span=self.inner.span();
             return (T::eof(),span);
         }
