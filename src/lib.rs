@@ -104,6 +104,7 @@ use logos::{
 use std::{
     fmt::Debug,
     ops::Range,
+    str::CharIndices,
     mem,
 };
 
@@ -114,6 +115,12 @@ pub type Span=Range<usize>;
 /// Required for a token to be used.
 pub trait Token:Debug {
     fn eof()->Self;
+}
+impl Token for char {
+    /// We use the null char to indicate EOF since there isn't a better option
+    fn eof()->Self {
+        '\0'
+    }
 }
 
 /// A stream of tokens with a few helpful functions.
@@ -165,6 +172,49 @@ pub enum Either<A,B> {
     B(B),
 }
 
+
+pub struct CharTokenStream<'a> {
+    s:&'a str,
+    cur_offset:usize,
+    iter:CharIndices<'a>,
+}
+impl<'a> CharTokenStream<'a> {
+    fn next_char_index(&self)->usize {
+        let start=self.cur_offset;
+        for o in 1..5 {
+            if self.s.is_char_boundary(start+o) {
+                return (start+o).min(self.s.len());
+            }
+        }
+        unreachable!();
+    }
+}
+impl<'a> Iterator for CharTokenStream<'a> {
+    type Item=char;
+    fn next(&mut self)->Option<char> {
+        let (cur_offset,c)=self.iter.next()?;
+        self.cur_offset=cur_offset;
+        return Some(c);
+    }
+}
+impl<'a> TokenStream<char> for CharTokenStream<'a> {
+    type Slice=&'a str;
+    fn source(&self)->Self::Slice {
+        self.s
+    }
+    fn span(&self)->Span {
+        return self.cur_offset..self.next_char_index();
+    }
+    fn remaining(&self)->Self::Slice {
+        &self.s[self.cur_offset..]
+    }
+    fn slice(&self)->Self::Slice {
+        &self.s[self.cur_offset..self.next_char_index()]
+    }
+    fn end_span(&self)->Span {
+        self.s.len()..self.s.len()
+    }
+}
 
 /// A parser with `K` tokens of lookahead and a few helpful methods. Can contain user data for
 /// context-dependent parsing like significant whitespace or nested languages.
