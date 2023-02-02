@@ -104,7 +104,6 @@ use logos::{
 use std::{
     fmt::Debug,
     ops::Range,
-    marker::PhantomData,
     mem,
 };
 
@@ -172,7 +171,7 @@ pub enum Either<A,B> {
 ///
 /// Note: K MUST BE greater than 0 or the lexer will always panic when attempting to access a
 /// zero-length lookahead buffer.
-pub struct LookaheadLexer<'a,const K:usize,T:Token,L:TokenStream<T>,D> {
+pub struct LookaheadLexer<const K:usize,T:Token,L:TokenStream<T>,D> {
     /// If it returns true, then we ignore the token
     ignore_fn:Box<dyn Fn(&T)->bool>,
     enable_ignore:bool,
@@ -180,9 +179,8 @@ pub struct LookaheadLexer<'a,const K:usize,T:Token,L:TokenStream<T>,D> {
     inner:L,
     buffer:[(T,Span);K],
     current_token_span:Span,
-    _phantom:PhantomData<&'a ()>,
 }
-impl<'a,const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<'a,K,T,L,D> {
+impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
     /// Create a new LookaheadLexer with the given lexer and user data.
     pub fn new(lexer:L,user_data:D)->Self {
         debug_assert!(K!=0);
@@ -201,7 +199,6 @@ impl<'a,const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<'a,K,T,L,D> {
             inner:lexer,
             buffer,
             current_token_span:0..0,
-            _phantom:PhantomData,
         };
 
         ret.init_buffer();
