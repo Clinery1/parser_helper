@@ -179,6 +179,14 @@ pub struct CharTokenStream<'a> {
     iter:CharIndices<'a>,
 }
 impl<'a> CharTokenStream<'a> {
+    pub fn new(source:&'a str)->Self {
+        Self {
+            s:source,
+            cur_offset:0,
+            iter:source.char_indices(),
+        }
+    }
+
     fn next_char_index(&self)->usize {
         let start=self.cur_offset;
         for o in 1..5 {
