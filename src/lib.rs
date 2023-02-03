@@ -188,8 +188,11 @@ impl<'a> CharTokenStream<'a> {
     }
 
     fn next_char_index(&self)->usize {
-        let start=self.cur_offset;
-        for o in 1..5 {
+        let start=self.cur_offset+1;
+        for o in 0..4 {
+            if start+o>=self.s.len() {
+                return self.s.len();
+            }
             if self.s.is_char_boundary(start+o) {
                 return (start+o).min(self.s.len());
             }
