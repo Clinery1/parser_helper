@@ -304,8 +304,18 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
         }
     }
 
+    /// Returns a reference to the token at the given index.
+    pub fn lookahead(&mut self,index:usize)->&T {
+        &self.raw_lookahead(index).0
+    }
+
+    /// Returns a reference to the span at the given index.
+    pub fn lookahead_span(&mut self,index:usize)->Span {
+        self.raw_lookahead(index).1.clone()
+    }
+
     /// Returns a reference to the internal lookahead buffer at the given index.
-    pub fn lookahead(&mut self,index:usize)->&(T,Span) {
+    pub fn raw_lookahead(&mut self,index:usize)->&(T,Span) {
         debug_assert!(index<K,"Index out of bounds. There are only {} token(s) of lookahead",K);
         if self.should_skip(&self.buffer[index].0) {
             self.shift_lookahead(index);
