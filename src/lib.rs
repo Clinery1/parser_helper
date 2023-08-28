@@ -130,7 +130,7 @@ macro_rules! new_parser {
             }
         }
     };
-    ($is_pub:vis struct $name:ident<$count:literal, $token:ty, $lexer:ty, $data:ty>)=>{
+    ($is_pub:vis struct $name:ident<$count:literal, $token:ty, $lexer:ty>)=>{
         new_parser!($is_pub struct $name<$count, $token, $lexer, ()>);
     };
     ($is_pub:vis struct $name:ident<$count:literal, $token:ty, $lexer:ty, $data:ty>)=>{
@@ -154,7 +154,7 @@ macro_rules! new_parser {
     };
 }
 
-new_parser!(pub struct MyParser<'a, 1, char, CharTokenStream<'a>, String>);
+// new_parser!(pub? struct MyParser<'lifetime?, LOOKAHEAD, TokenType, InnerLexer, UserData?>);
 
 
 pub type Span=Range<usize>;
