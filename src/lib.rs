@@ -97,16 +97,64 @@
 
 
 #[cfg(feature="logos")]
-use logos::{
-    Lexer,
-    Logos,
-};
+use logos::Logos;
 use std::{
     fmt::Debug,
     ops::Range,
     str::CharIndices,
     mem,
 };
+
+
+#[macro_export]
+macro_rules! new_parser {
+    ($is_pub:vis struct $name:ident<$lt:lifetime, $count:literal, $token:ty, $lexer:ty>)=>{
+        new_parser!($is_pub struct $name<$lt, $count, $token, $lexer, ()>);
+    };
+    ($is_pub:vis struct $name:ident<$lt:lifetime, $count:literal, $token:ty, $lexer:ty, $data:ty>)=>{
+        $is_pub struct $name<$lt>($crate::LookaheadLexer<$count,$token,$lexer,$data>);
+        impl<$lt> $name<$lt> {
+            pub fn new(lexer: $lexer, data: $data)->Self {
+                Self(LookaheadLexer::new(lexer, data))
+            }
+        }
+        impl<$lt> std::ops::Deref for $name<$lt> {
+            type Target=$crate::LookaheadLexer<$count,$token,$lexer,$data>;
+            fn deref(&self)->&Self::Target {
+                &self.0
+            }
+        }
+        impl<$lt> std::ops::DerefMut for $name<$lt> {
+            fn deref_mut(&mut self)->&mut Self::Target {
+                &mut self.0
+            }
+        }
+    };
+    ($is_pub:vis struct $name:ident<$count:literal, $token:ty, $lexer:ty, $data:ty>)=>{
+        new_parser!($is_pub struct $name<$count, $token, $lexer, ()>);
+    };
+    ($is_pub:vis struct $name:ident<$count:literal, $token:ty, $lexer:ty, $data:ty>)=>{
+        $is_pub struct $name($crate::LookaheadLexer<$count,$token,$lexer,$data>);
+        impl<$lt> $name<$lt> {
+            pub fn new(lexer: $lexer, data: $data)->Self {
+                Self(LookaheadLexer::new(lexer, data))
+            }
+        }
+        impl std::ops::Deref for $name {
+            type Target=$crate::LookaheadLexer<$count,$token,$lexer,$data>;
+            fn deref(&self)->&Self::Target {
+                &self.0
+            }
+        }
+        impl std::ops::DerefMut for $name {
+            fn deref_mut(&mut self)->&mut Self::Target {
+                &mut self.0
+            }
+        }
+    };
+}
+
+new_parser!(pub struct MyParser<'a, 1, char, CharTokenStream<'a>, String>);
 
 
 pub type Span=Range<usize>;
@@ -143,22 +191,22 @@ pub trait TokenStream<T:Token>:Iterator<Item=T> {
 }
 
 #[cfg(feature="logos")]
-impl<'a,T:Token+Logos<'a,Source=str>> TokenStream<T> for Lexer<'a,T> {
+impl<'a,T:Token+Logos<'a,Source=str>> TokenStream<T> for LogosWrapper<'a,T> {
     type Slice=&'a str;
     fn span(&self)->Span {
-        self.span()
+        self.0.span()
     }
     fn source(&self)->&'a str {
-        self.source()
+        self.0.source()
     }
     fn remaining(&self)->&'a str {
-        self.remainder()
+        self.0.remainder()
     }
     fn slice(&self)->&'a str {
-        self.slice()
+        self.0.slice()
     }
     fn end_span(&self)->Span {
-        self.source().len()..self.source().len()
+        self.0.source().len()..self.0.source().len()
     }
 }
 
@@ -166,12 +214,49 @@ impl<'a,T:Token+Logos<'a,Source=str>> TokenStream<T> for Lexer<'a,T> {
 /// A helper for returning two different types from a parser.
 #[derive(Debug,PartialEq)]
 pub enum Either<A,B> {
-    /// One possible type.
     A(A),
-    /// Another possible type.
     B(B),
 }
 
+/// A helper for returning three different types from a parser.
+#[derive(Debug,PartialEq)]
+pub enum Either3<A,B,C> {
+    A(A),
+    B(B),
+    C(C),
+}
+
+/// A helper for returning three different types from a parser.
+#[derive(Debug,PartialEq)]
+pub enum Either4<A,B,C,D> {
+    A(A),
+    B(B),
+    C(C),
+    D(D),
+}
+
+
+#[cfg(feature="logos")]
+#[repr(transparent)]
+pub struct LogosWrapper<'a, T: Logos<'a>>(pub logos::Lexer<'a, T>);
+
+#[cfg(feature="logos")]
+impl<'a, T: Logos<'a>> Iterator for LogosWrapper<'a, T> {
+    type Item = T;
+    fn next(&mut self)->Option<T> {
+        if let Ok(t) = self.0.next()? {
+            return Some(t);
+        }
+        return None;
+    }
+}
+
+#[cfg(feature="logos")]
+impl<'a, T: Logos<'a>> From<logos::Lexer<'a, T>> for LogosWrapper<'a, T> {
+    fn from(o: logos::Lexer<'a, T>)->Self {
+        Self(o)
+    }
+}
 
 pub struct CharTokenStream<'a> {
     s:&'a str,
@@ -269,6 +354,10 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
         return ret;
     }
 
+    pub fn finish(self)->D {
+        self.user_data
+    }
+
     /// Get a reference to the token stream
     #[inline]
     pub fn token_stream(&self)->&L {
@@ -317,15 +406,15 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
     /// Returns a reference to the internal lookahead buffer at the given index.
     pub fn raw_lookahead(&mut self,index:usize)->&(T,Span) {
         debug_assert!(index<K,"Index out of bounds. There are only {} token(s) of lookahead",K);
-        if self.should_skip(&self.buffer[index].0) {
+        while self.should_skip(&self.buffer[index].0) {
             self.shift_lookahead(index);
         }
         &self.buffer[index]
     }
 
     /// Debug prints the internal lookahead buffer
-    pub fn dbg_lookahead(&self) {
-        println!();
+    pub fn dbg_lookahead(&self,line:u32) {
+        println!("DBG on line {}",line);
         for (i,t) in self.buffer.iter().enumerate() {
             println!("{}: {:?}",i,t);
         }
@@ -410,5 +499,35 @@ pub struct SimpleError<M=&'static str> {
 impl SimpleError {
     pub fn eprint(&self) {
         eprintln!("{}",self.msg);
+    }
+
+    pub fn eprint_with_source(&self,source:&str,filename:&str) {
+        let mut line_start=0;
+        let mut line_end=0;
+        let mut line_num=0;
+        for line in source.lines() {
+            line_num+=1;
+            line_start=line_end;
+            line_end+=line.len()+1;
+            if line_end>self.span.start&&line_start<=self.span.start {
+                break;
+            }
+        }
+
+        let line_str=&source[line_start..line_end.saturating_sub(1)];
+        let char_num=self.span.start-line_start;
+        eprintln!("╭╢ [{}:{}] in {}",line_num,char_num,filename);
+
+        eprintln!("│{}",line_str);
+
+        eprint!(  "╰");
+        for _ in 0..char_num {
+            eprint!("─");
+        }
+        let end=self.span.end.min(line_end);
+        for _ in 1..(end-self.span.start) {
+            eprint!("┴");
+        }
+        eprintln!("┴╢ {}",self.msg);
     }
 }
