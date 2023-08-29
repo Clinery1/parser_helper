@@ -99,7 +99,10 @@
 #[cfg(feature="logos")]
 use logos::Logos;
 use std::{
-    fmt::Debug,
+    fmt::{
+        Debug,
+        Display,
+    },
     ops::Range,
     str::CharIndices,
     mem,
@@ -496,7 +499,7 @@ pub struct SimpleError<M=&'static str> {
     pub span:Span,
     pub msg:M,
 }
-impl SimpleError {
+impl<M: Display> SimpleError<M> {
     pub fn eprint(&self) {
         eprintln!("{}",self.msg);
     }
