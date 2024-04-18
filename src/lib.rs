@@ -1,3 +1,6 @@
+// TODO: Reformat ALL of this code and update it to my current "style"
+
+
 //! # About
 //! A helpful little library for hand writing recursive ascent/descent parsers. Makes lookahead
 //! much easier so you don't have to write a lookahead lexer yourself.
@@ -389,10 +392,10 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
     }
 
     /// Creates an error with the given message at the current location.
-    pub fn error<M>(&self,msg:M)->SimpleError<M> {
+    pub fn error<M, I: Into<M>>(&self,msg:I)->SimpleError<M> {
         SimpleError {
             span:self.span(),
-            msg,
+            msg: msg.into(),
         }
     }
 
@@ -447,7 +450,7 @@ impl<const K:usize,T:Token,L:TokenStream<T>,D> LookaheadLexer<K,T,L,D> {
 
     /// Attempt to match the given token to the next token. If it does not match, then return a
     /// [`SimpleError`] with the given error message.
-    pub fn match_token<E>(&mut self,token:T,err_msg:E)->Result<(),SimpleError<E>>
+    pub fn match_token<M, I: Into<M>>(&mut self,token:T,err_msg:I)->Result<(),SimpleError<M>>
     where T:PartialEq {
         let new_token=self.take_token();
         if new_token!=token {
