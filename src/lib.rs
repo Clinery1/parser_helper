@@ -524,16 +524,22 @@ impl<M: Display> SimpleError<M> {
         let char_num=self.span.start-line_start;
         eprintln!("╭╢ [{}:{}] in {}",line_num,char_num,filename);
 
-        eprintln!("│{}",line_str);
+        eprintln!("│ {}",line_str);
 
         eprint!(  "╰");
         for _ in 0..char_num {
             eprint!("─");
         }
+        eprint!("┬");
         let end=self.span.end.min(line_end);
         for _ in 1..(end-self.span.start) {
             eprint!("┴");
         }
-        eprintln!("┴╢ {}",self.msg);
+        eprintln!("╯");
+
+        for _ in 0..char_num {
+            eprint!(" ");
+        }
+        eprintln!(" ╰╢ {}",self.msg);
     }
 }
