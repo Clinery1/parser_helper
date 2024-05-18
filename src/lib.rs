@@ -476,7 +476,7 @@ impl<M: Display> SimpleError<M> {
         eprintln!("{self}");
     }
 
-    pub fn eprint_with_source(&self, source: &str, filename: &str) {
+    pub fn eprint_with_source(&self, source: &str, filename: impl Display) {
         let mut line_start = 0;
         let mut line_end = 0;
         let mut line_num = 0;
